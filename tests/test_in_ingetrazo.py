@@ -159,3 +159,29 @@ def test_the_counting_modes_keep_their_own_number(window):
     assert p.amount.value() == 80
     prm = p.params()
     assert prm["count"] == 80 and prm["density"] == 2.5
+
+
+def test_it_waits_visibly_and_gives_the_cursor_back(window):
+    import time
+    win, _ = window
+    scene = win.viewport.scene
+    scene.selection.add(_face(scene))
+    p = _panel(win)
+    p._refresh_selection(True)
+    p.check("bundled", "arbol")
+    p.amount.setValue(5)
+    p.run()
+    assert QApplication.overrideCursor() is not None and not p.go.isEnabled()
+    end = time.time() + 2
+    while QApplication.overrideCursor() is not None and time.time() < end:
+        _app.processEvents()
+        time.sleep(0.02)
+    assert QApplication.overrideCursor() is None and p.go.isEnabled()
+    # An error gives it back too.
+    p.terrain.setChecked(True)
+    p.run()
+    end = time.time() + 2
+    while QApplication.overrideCursor() is not None and time.time() < end:
+        _app.processEvents()
+        time.sleep(0.02)
+    assert QApplication.overrideCursor() is None and "Terrain" in p.status.text()

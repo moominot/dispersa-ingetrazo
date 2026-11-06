@@ -30,6 +30,7 @@ class ScatterPanel(QWidget):
         super().__init__()
         self.app = app
         self._editing = None             # the scatter being edited, if any
+        self._busy = False               # scattering: the button waits
         self._sel_key = None
         self._tris = []
         lay = QVBoxLayout(self)
@@ -332,11 +333,11 @@ class ScatterPanel(QWidget):
                 "Change the numbers and scatter again on the same surface; or "
                 "select faces to start a new one."))
             self.go.setText(tr("Scatter again"))
-            self.go.setEnabled(True)
+            self.go.setEnabled(not self._busy)
         else:
             self.editing.setText("")
             self.go.setText(tr("Scatter on the selection"))
-            self.go.setEnabled(bool(self._tris))
+            self.go.setEnabled(bool(self._tris) and not self._busy)
 
     # ---- the button -----------------------------------------------------------
 
@@ -354,18 +355,38 @@ class ScatterPanel(QWidget):
         end = getattr(vp, "end_group_edit", None)
         if callable(end):
             end()
+        # Reading the objects, building the copies and IngeTrazo's own
+        # first drawing of them can take seconds: say so, and wait visibly.
+        from PySide6.QtWidgets import QApplication
         self.status.setText(tr("Scattering…"))
-        self.status.repaint()
+        self._busy = True
+        self.go.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
         try:
-            box, placed, wanted = motor.prepare(scene, params, tris=tris, old=old,
-                                                terrain=terrain)
-        except ValueError as exc:
-            self.status.setText(str(exc))
-            return
-        vp.history.execute(SnapshotImport(lambda s: motor.place(s, box, old)))
-        if box not in scene.groups:      # IngeTrazo logged why; nothing changed
-            self.status.setText(getattr(vp.history, "last_error", None) or "")
-            return
+            try:
+                box, placed, wanted = motor.prepare(scene, params, tris=tris,
+                                                    old=old, terrain=terrain)
+            except ValueError as exc:
+                self.status.setText(str(exc))
+                return
+            vp.history.execute(SnapshotImport(lambda s: motor.place(s, box, old)))
+            if box not in scene.groups:  # IngeTrazo logged why; nothing changed
+                self.status.setText(getattr(vp.history, "last_error", None) or "")
+                return
+            self._finish(vp, scene, box, placed, wanted)
+        finally:
+            # After the next paint: the timer cannot fire while IngeTrazo is
+            # still busy drawing the new copies for the first time.
+            QTimer.singleShot(200, self._idle)
+
+    def _idle(self) -> None:
+        from PySide6.QtWidgets import QApplication
+        QApplication.restoreOverrideCursor()
+        self._busy = False
+        self._show_mode()
+
+    def _finish(self, vp, scene, box, placed, wanted) -> None:
         notify = getattr(vp, "notify_scene_changed", None)
         if callable(notify):
             notify()

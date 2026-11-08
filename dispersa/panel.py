@@ -41,7 +41,8 @@ QFrame#segbar { background: palette(base); border: 1px solid palette(midlight);
                 border-radius: 8px; }
 QPushButton#primary { background: palette(highlight); color: palette(highlighted-text);
                       border: none; border-radius: 7px; padding: 9px; font-weight: bold; }
-QPushButton#primary:disabled { background: palette(midlight); color: palette(mid); }
+QPushButton#primary:disabled { background: transparent; color: palette(placeholder-text);
+                               border: 1px solid palette(midlight); }
 QPushButton#primary:checked { background: palette(dark); }
 QToolButton#tiny { border: 1px solid palette(midlight); border-radius: 4px;
                    padding: 0px; min-width: 16px; min-height: 16px; }

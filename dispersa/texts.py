@@ -70,6 +70,46 @@ _TEXTS = {
         "Could not read {name}.": "No se pudo leer {name}.",
                 "Edit in Dispersa…": "Editar en Dispersa…",
         "Seed {s}": "Semilla {s}",
+        "Brush":
+            "Pincel",
+        "Paint":
+            "Pintar",
+        "Drag over faces (or the terrain, with “On the terrain”) to add copies; Shift+drag takes them away. [ and ] change the size.":
+            "Arrastra sobre caras (o el terreno, con «Sobre el terreno») para añadir copias; Mayús+arrastrar las quita. [ y ] cambian el tamaño.",
+        "The brush's radius":
+            "El radio del pincel",
+        "Brush size":
+            "Tamaño del pincel",
+        "How thick the brush paints, with the objects and the variation above":
+            "Cuán denso pinta el pincel, con los objetos y la variación de arriba",
+        "Keep clear":
+            "Zonas libres",
+        "Nothing goes inside what you select here, seen from above: a path, a house, a pond.":
+            "Nada cae dentro de lo que selecciones aquí, visto desde arriba: un camino, una casa, un estanque.",
+        "Keep the selection clear":
+            "Dejar libre la selección",
+        "Free all zones":
+            "Quitar todas las zonas",
+        "Painted by hand.":
+            "Pintada a mano.",
+        "Brush strokes: {n}.":
+            "Trazos de pincel: {n}.",
+        "The brush adds to “{name}”.":
+            "El pincel añade a «{name}».",
+        "The brush starts a new scatter.":
+            "El pincel empieza una dispersión nueva.",
+        "Make or select a scatter first.":
+            "Primero haz o selecciona una dispersión.",
+        "In “{name}”: {n} zones kept clear.":
+            "En «{name}»: {n} zonas libres.",
+        "Select a scatter to take copies away from it.":
+            "Selecciona una dispersión para quitarle copias.",
+        "The selection covers nothing seen from above.":
+            "La selección no cubre nada visto desde arriba.",
+        "{n} copies in the scatter.":
+            "{n} copias en la dispersión.",
+        "Drag to paint copies, Shift+drag to take them away. [ and ] change the size; Esc stops.":
+            "Arrastra para pintar copias, Mayús+arrastrar para quitarlas. [ y ] cambian el tamaño; Esc termina.",
     },
     "pt": {
                         "Show the Dispersa tab: trees, plants, stones or people spread over faces or the terrain.":
@@ -136,6 +176,46 @@ _TEXTS = {
         "Could not read {name}.": "Não foi possível ler {name}.",
                 "Edit in Dispersa…": "Editar em Dispersa…",
         "Seed {s}": "Semente {s}",
+        "Brush":
+            "Pincel",
+        "Paint":
+            "Pintar",
+        "Drag over faces (or the terrain, with “On the terrain”) to add copies; Shift+drag takes them away. [ and ] change the size.":
+            "Arraste sobre faces (ou o terreno, com «Sobre o terreno») para adicionar cópias; Shift+arrastar as remove. [ e ] mudam o tamanho.",
+        "The brush's radius":
+            "O raio do pincel",
+        "Brush size":
+            "Tamanho do pincel",
+        "How thick the brush paints, with the objects and the variation above":
+            "Quão denso o pincel pinta, com os objetos e a variação acima",
+        "Keep clear":
+            "Zonas livres",
+        "Nothing goes inside what you select here, seen from above: a path, a house, a pond.":
+            "Nada cai dentro do que você selecionar aqui, visto de cima: um caminho, uma casa, um lago.",
+        "Keep the selection clear":
+            "Deixar a seleção livre",
+        "Free all zones":
+            "Remover todas as zonas",
+        "Painted by hand.":
+            "Pintada à mão.",
+        "Brush strokes: {n}.":
+            "Traços de pincel: {n}.",
+        "The brush adds to “{name}”.":
+            "O pincel adiciona a «{name}».",
+        "The brush starts a new scatter.":
+            "O pincel começa uma nova dispersão.",
+        "Make or select a scatter first.":
+            "Primeiro faça ou selecione uma dispersão.",
+        "In “{name}”: {n} zones kept clear.":
+            "Em «{name}»: {n} zonas livres.",
+        "Select a scatter to take copies away from it.":
+            "Selecione uma dispersão para remover cópias dela.",
+        "The selection covers nothing seen from above.":
+            "A seleção não cobre nada vista de cima.",
+        "{n} copies in the scatter.":
+            "{n} cópias na dispersão.",
+        "Drag to paint copies, Shift+drag to take them away. [ and ] change the size; Esc stops.":
+            "Arraste para pintar cópias, Shift+arrastar para removê-las. [ e ] mudam o tamanho; Esc termina.",
     },
 }
 

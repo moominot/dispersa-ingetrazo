@@ -32,6 +32,15 @@ group or the terrain, with their size and turn at random.
 - **One group on a layer of its own**, **one undo step**. Select the group
   later and the tab brings back how it was made: change the numbers and
   **scatter again** on the same surface.
+- **Brush** (0.2): press **Paint** and drag over faces, or over the
+  terrain with *On the terrain* ticked, and copies appear under the
+  brush, with the objects and variation you chose. **Shift+drag** takes
+  copies away; **[** and **]** change the brush size; **Esc** stops.
+  Each stroke is one undo step and stays in the scatter, so scattering
+  again keeps what you painted.
+- **Keep clear** (0.2): select a path, a house or a pond and press **Keep
+  the selection clear**: nothing goes inside it, seen from above, now or
+  when you scatter again.
 
 ### Install
 
@@ -75,6 +84,15 @@ INGETRAZO_SRC=~/src/ingetrazo QT_QPA_PLATFORM=offscreen \
 - **Un grupo en su propia capa**, **un solo paso de deshacer**. Si luego
   seleccionas el grupo, la pestaña recupera cómo se hizo: cambia los
   valores y **vuelve a dispersar** sobre la misma superficie.
+- **Pincel** (0.2): pulsa **Pintar** y arrastra sobre caras, o sobre el
+  terreno con *Sobre el terreno* marcado, y aparecen copias bajo el
+  pincel, con los objetos y la variación que elegiste. **Mayús+arrastrar**
+  quita copias; **[** y **]** cambian el tamaño del pincel; **Esc**
+  termina. Cada trazo es un paso de deshacer y queda guardado en la
+  dispersión, así que al volver a dispersar se conserva lo pintado.
+- **Zonas libres** (0.2): selecciona un camino, una casa o un estanque y
+  pulsa **Dejar libre la selección**: nada cae dentro, visto desde arriba,
+  ni ahora ni al volver a dispersar.
 
 ### Instalar
 

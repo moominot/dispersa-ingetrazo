@@ -16,7 +16,7 @@ Install: copy the ``dispersa`` folder into IngeTrazo's plugins folder
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def _language() -> str:
@@ -32,6 +32,7 @@ def setup(app) -> None:
     tr = texts.tr
     panel = ScatterPanel(app)
     dock = app.add_panel("Dispersa", panel)
+    app.add_overlay(panel.draw_brush)
 
     def show(group=None):
         app.show_panel(dock)

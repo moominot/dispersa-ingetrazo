@@ -499,17 +499,8 @@ class ScatterPanel(QWidget):
         if self._tool is not None and viewport.active_tool is self._tool:
             self._tool.draw(self.app, painter)
 
-    def brush_surfaces(self) -> list:
-        """The surfaces the scatter being painted lies on, to find the
-        ground behind its own copies."""
-        g = self._editing
-        if g is None or g not in self.app.scene.groups:
-            return []
-        e = g.ext[motor.KEY]
-        out = list(e.get("surface") or [])
-        for st in e.get("strokes") or ():
-            out.extend(st.get("tris") or ())
-        return out
+    def say(self, text: str) -> None:
+        self.status.setText(text)
 
     def paint(self, stroke) -> bool:
         """One brush stroke into the scatter being edited, or a new one."""

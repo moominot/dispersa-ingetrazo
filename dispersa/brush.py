@@ -17,39 +17,6 @@ from . import motor
 from .texts import tr
 
 
-def ray_tris(o, d, tris):
-    """Distance along the ray (o, d) to the nearest of ``tris``, or None
-    (Möller–Trumbore, both sides)."""
-    best = None
-    ox, oy, oz = o
-    dx, dy, dz = d
-    for t in tris:
-        ax, ay, az = t[0], t[1], t[2]
-        e1 = (t[3] - ax, t[4] - ay, t[5] - az)
-        e2 = (t[6] - ax, t[7] - ay, t[8] - az)
-        px = dy * e2[2] - dz * e2[1]
-        py = dz * e2[0] - dx * e2[2]
-        pz = dx * e2[1] - dy * e2[0]
-        det = e1[0] * px + e1[1] * py + e1[2] * pz
-        if abs(det) < 1e-12:
-            continue
-        inv = 1.0 / det
-        sx, sy, sz = ox - ax, oy - ay, oz - az
-        u = (sx * px + sy * py + sz * pz) * inv
-        if u < -1e-9 or u > 1 + 1e-9:
-            continue
-        qx = sy * e1[2] - sz * e1[1]
-        qy = sz * e1[0] - sx * e1[2]
-        qz = sx * e1[1] - sy * e1[0]
-        v = (dx * qx + dy * qy + dz * qz) * inv
-        if v < -1e-9 or u + v > 1 + 1e-9:
-            continue
-        dist = (e2[0] * qx + e2[1] * qy + e2[2] * qz) * inv
-        if dist > 1e-6 and (best is None or dist < best):
-            best = dist
-    return best
-
-
 def ray_terrain(terrain, o, d, far=20000.0):
     """Where the ray (o, d) first meets the terrain, or None: walked in
     steps that grow with the distance, then bisected."""
@@ -77,6 +44,64 @@ def ray_terrain(terrain, o, d, far=20000.0):
     return None
 
 
+def model_surface(scene):
+    """Every face of the model a brush can land on, as an (N, 9) array of
+    world triangles: the loose geometry and the groups, never a scatter
+    (its copies must not catch the brush) nor what is hidden."""
+    import numpy as np
+    from core.group import iter_placements
+    out = []
+    for f in scene.mesh.faces:
+        out.extend(face_tris(f))
+    for g in scene.groups:
+        if motor.is_scatter(g) or getattr(g, "hidden", False):
+            continue
+        for sub, m in iter_placements(g):
+            for f in sub.mesh.faces:
+                out.extend(face_tris(f, m))
+    return np.asarray(out, dtype=float).reshape(-1, 9)
+
+
+def surface_key(scene):
+    """Changes when the model's geometry does (not when a scatter does)."""
+    parts = [id(scene.mesh), len(scene.mesh.faces),
+             getattr(scene.mesh, "_mut_serial", 0)]
+    for g in scene.groups:
+        if motor.is_scatter(g):
+            continue
+        parts += [id(g), id(g.mesh), getattr(g.mesh, "_mut_serial", 0),
+                  bool(getattr(g, "hidden", False)),
+                  tuple(round(v, 6) for v in g.xform.data())
+                  if getattr(g, "xform", None) is not None else None]
+    return tuple(parts)
+
+
+def ray_array(o, d, T):
+    """Nearest distance along the ray (o, d) to the triangles ``T`` (an
+    (N, 9) array), or None. Möller–Trumbore for all of them at once."""
+    import numpy as np
+    if T is None or not len(T):
+        return None
+    o = np.asarray(o, float)
+    d = np.asarray(d, float)
+    a = T[:, 0:3]
+    e1 = T[:, 3:6] - a
+    e2 = T[:, 6:9] - a
+    p = np.cross(d, e2)
+    det = np.einsum("ij,ij->i", e1, p)
+    ok = np.abs(det) > 1e-12
+    inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+    s = o - a
+    u = np.einsum("ij,ij->i", s, p) * inv
+    q = np.cross(s, e1)
+    v = (q @ d) * inv
+    t = np.einsum("ij,ij->i", e2, q) * inv
+    hit = ok & (u >= -1e-9) & (v >= -1e-9) & (u + v <= 1 + 1e-9) & (t > 1e-6)
+    if not hit.any():
+        return None
+    return float(t[hit].min())
+
+
 def face_tris(face, matrix=None):
     out = []
     for a, b, c in face.triangulate():
@@ -97,8 +122,8 @@ class BrushTool(Tool):
         self.cursor = None          # (x, y, z) under the pointer
         self.path = None            # the stroke being drawn
         self.erase = False
-        self._faces = {}            # id(face) → its world triangles
-        self._known = []            # surfaces met before (behind copies)
+        self._surface = None        # the model's triangles, (N, 9)
+        self._surface_key = None
 
     # ---- the tool --------------------------------------------------------------
 
@@ -120,8 +145,6 @@ class BrushTool(Tool):
     def on_click(self, ctx) -> None:
         vp = ctx.viewport
         self.erase = bool(ctx.modifiers & Qt.ShiftModifier)
-        self._faces = {}
-        self._known = self.panel.brush_surfaces()
         hit = self.hit(vp, ctx.screen.x(), ctx.screen.y())
         self.cursor = hit
         self.path = [hit] if hit is not None else None
@@ -150,13 +173,21 @@ class BrushTool(Tool):
             terrain = self.panel.terrain.isChecked()
             stroke["terrain"] = terrain
             if not terrain:
-                tris = [t for ts in self._faces.values() for t in ts]
+                tris = self.surface(self.panel.app.scene)
                 stroke["tris"] = motor.stroke_surface(
-                    tris, stroke["path"], r, self.panel.max_slope.value())
+                    tris.tolist(), stroke["path"], r, self.panel.max_slope.value())
                 if not stroke["tris"]:
+                    self.panel.say(tr("Nothing to paint on there: the faces "
+                                      "under the brush are too steep."))
                     return
-        self._faces = {}
         self.panel.paint(stroke)
+
+    def surface(self, scene):
+        key = surface_key(scene)
+        if key != self._surface_key or self._surface is None:
+            self._surface = model_surface(scene)
+            self._surface_key = key
+        return self._surface
 
     def on_cancel(self, viewport) -> None:
         if self.path is not None:
@@ -193,18 +224,7 @@ class BrushTool(Tool):
                 return None
             t = ray_terrain(terrain, o, d)
         else:
-            t = None
-            face, owner = vp.pick_face_any(sx, sy)
-            if face is not None and not motor.is_scatter(owner):
-                _f, place = vp.pick_face_placement(sx, sy)
-                tris = face_tris(face, getattr(place, "xform", None))
-                t = ray_tris(o, d, tris)
-                if t is not None and self.path is not None:
-                    self._faces[id(face), id(place)] = tris
-            if t is None:
-                # Behind a copy: the surfaces this scatter was made on.
-                known = self._known + [x for ts in self._faces.values() for x in ts]
-                t = ray_tris(o, d, known)
+            t = ray_array(o, d, self.surface(self.panel.app.scene))
         if t is None:
             return None
         return (o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t)

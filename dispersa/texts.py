@@ -70,6 +70,8 @@ _TEXTS = {
         "Could not read {name}.": "No se pudo leer {name}.",
                 "Edit in Dispersa…": "Editar en Dispersa…",
         "Seed {s}": "Semilla {s}",
+        "Nothing to paint on there: the faces under the brush are too steep.":
+            "No hay dónde pintar ahí: las caras bajo el pincel son demasiado empinadas.",
         "Brush":
             "Pincel",
         "Paint":
@@ -176,6 +178,8 @@ _TEXTS = {
         "Could not read {name}.": "Não foi possível ler {name}.",
                 "Edit in Dispersa…": "Editar em Dispersa…",
         "Seed {s}": "Semente {s}",
+        "Nothing to paint on there: the faces under the brush are too steep.":
+            "Não há onde pintar ali: as faces sob o pincel são íngremes demais.",
         "Brush":
             "Pincel",
         "Paint":

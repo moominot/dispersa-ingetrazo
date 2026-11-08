@@ -352,3 +352,29 @@ def test_a_stroke_on_a_big_scatter_stays_quick(window):
     t = time.time()
     _drag(p._tool, vp, app, [(4, 36, 0), (36, 36, 0)])
     assert time.time() - t < 3.0
+
+
+def test_real_mouse_strokes_keep_painting_behind_earlier_copies(window):
+    """Victor, 08-11: the first stroke painted, the next ones mostly did not
+    (the trees already painted hid the ground from the pick). Real mouse
+    events, bands one behind the other."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    win, app, scene, vp, p = _brush_window(window)
+    p.brush_density.setValue(25.0)
+
+    def at(x, y):
+        a, b = _pixel(app, x, y)
+        return QPoint(int(a), int(b))
+
+    counts = []
+    for y in (8, 16, 24, 32):
+        QTest.mouseMove(vp, at(5, y))
+        QTest.mousePress(vp, Qt.LeftButton, Qt.NoModifier, at(5, y))
+        for x in range(6, 36, 2):
+            QTest.mouseMove(vp, at(x, y))
+        QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, at(35, y))
+        QTest.qWait(250)
+        box = next((g for g in scene.groups if motor.is_scatter(g)), None)
+        counts.append(len(box.children) if box else 0)
+    assert all(b > a for a, b in zip([0] + counts, counts)), counts

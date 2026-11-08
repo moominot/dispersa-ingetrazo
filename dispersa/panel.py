@@ -1,21 +1,53 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Victor Crespo (3dvic.com · github.com/vicc3d)
-"""The Dispersa tab: which objects, on what, how many and how varied, and
-one button. Selecting a scatter brings its numbers back to change them.
-The brush paints copies by hand, and zones kept clear stay empty."""
+"""The Dispersa tab, in boxes that follow the work: choose a way (scatter
+over a selection, or paint with the brush), then the objects, where or
+the brush, how many, the variation, the zones kept clear, and one button.
+Selecting a scatter brings its numbers back to change them."""
 from __future__ import annotations
 
 import random
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout,
-    QHeaderView, QLabel, QPushButton, QSpinBox, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget)
+    QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGridLayout,
+    QHBoxLayout, QLabel, QPushButton, QScrollArea, QSpinBox, QToolButton,
+    QVBoxLayout, QWidget)
 
 from . import motor
+from .icons import icon
 from .texts import tr
+
+_STYLE = """
+QFrame#card { background: palette(base); border: 1px solid palette(midlight);
+              border-radius: 10px; }
+QLabel#title { font-weight: bold; }
+QLabel#step { border: 1px solid palette(highlight); color: palette(highlight);
+              border-radius: 9px; font-weight: bold;
+              min-width: 18px; max-width: 18px; min-height: 18px; max-height: 18px;
+              qproperty-alignment: AlignCenter; font-size: 11px; }
+QLabel#big { font-size: 17px; font-weight: bold; }
+QDoubleSpinBox#bigspin { font-size: 15px; font-weight: bold; padding: 2px; }
+QLabel#hint { color: palette(placeholder-text); font-size: 11px; }
+QFrame#tile { border: 1px solid palette(midlight); border-radius: 8px;
+              background: palette(base); }
+QFrame#tile[on="true"] { border: 2px solid palette(highlight); }
+QLabel#badge { color: palette(highlight); font-weight: bold; font-size: 11px; }
+QToolButton#seg { border: none; border-radius: 6px; padding: 6px 4px; }
+QToolButton#seg:checked { background: palette(highlight);
+                          color: palette(highlighted-text); font-weight: bold; }
+QFrame#segbar { background: palette(base); border: 1px solid palette(midlight);
+                border-radius: 8px; }
+QPushButton#primary { background: palette(highlight); color: palette(highlighted-text);
+                      border: none; border-radius: 7px; padding: 9px; font-weight: bold; }
+QPushButton#primary:disabled { background: palette(midlight); color: palette(mid); }
+QPushButton#primary:checked { background: palette(dark); }
+QToolButton#tiny { border: 1px solid palette(midlight); border-radius: 4px;
+                   padding: 0px; min-width: 16px; min-height: 16px; }
+QToolButton#action { border: 1px solid palette(midlight); border-radius: 8px;
+                     padding: 6px; background: palette(base); }
+"""
 
 
 def _core_tr(text: str) -> str:
@@ -24,6 +56,122 @@ def _core_tr(text: str) -> str:
         return core_tr(text)
     except Exception:                    # noqa: BLE001
         return text
+
+
+def _card(step, title, icon_key=None):
+    """A box of the bento: a numbered (or plain) title and its content."""
+    frame = QFrame()
+    frame.setObjectName("card")
+    lay = QVBoxLayout(frame)
+    lay.setContentsMargins(10, 8, 10, 10)
+    lay.setSpacing(6)
+    head = QHBoxLayout()
+    head.setSpacing(6)
+    if step:
+        num = QLabel(str(step))
+        num.setObjectName("step")
+        head.addWidget(num)
+    elif icon_key:
+        pic = QLabel()
+        pic.setPixmap(icon(icon_key).pixmap(16, 16))
+        head.addWidget(pic)
+    label = QLabel(title)
+    label.setObjectName("title")
+    head.addWidget(label)
+    head.addStretch(1)
+    if step and icon_key:
+        pic = QLabel()
+        pic.setPixmap(icon(icon_key).pixmap(16, 16))
+        head.addWidget(pic)
+    lay.addLayout(head)
+    frame.title = label
+    frame.head = head
+    return frame, lay
+
+
+def _row(icon_key, text, widget):
+    """An icon, a few words and the control, on one line."""
+    w = QWidget()
+    h = QHBoxLayout(w)
+    h.setContentsMargins(0, 0, 0, 0)
+    h.setSpacing(6)
+    pic = QLabel()
+    pic.setPixmap(icon(icon_key).pixmap(16, 16))
+    h.addWidget(pic)
+    lab = QLabel(text)
+    h.addWidget(lab, 1)
+    if widget is not None:
+        h.addWidget(widget)
+    return w
+
+
+class ObjectTile(QFrame):
+    """One object: its picture and name; click to choose it. Chosen, it
+    shows how often it comes out against the others (×1 … ×100)."""
+    changed = Signal()
+
+    def __init__(self, src, thumb, tip):
+        super().__init__()
+        self.setObjectName("tile")
+        self.src = src
+        self.setToolTip(tip)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedHeight(92)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(4, 4, 4, 4)
+        v.setSpacing(2)
+        pic = QLabel()
+        pic.setAlignment(Qt.AlignCenter)
+        ic = QIcon(thumb) if thumb else icon("model")
+        pic.setPixmap(ic.pixmap(40, 40))
+        v.addWidget(pic)
+        name = QLabel(src["name"])
+        name.setAlignment(Qt.AlignCenter)
+        name.setObjectName("hint")
+        name.setMinimumWidth(10)
+        v.addWidget(name)
+        row = QHBoxLayout()
+        row.setSpacing(2)
+        self.less, self.more = QToolButton(), QToolButton()
+        for b, t in ((self.less, "−"), (self.more, "+")):
+            b.setObjectName("tiny")
+            b.setText(t)
+            b.setAutoRaise(True)
+        self.badge = QLabel()
+        self.badge.setObjectName("badge")
+        self.badge.setAlignment(Qt.AlignCenter)
+        self.badge.setToolTip(tr("How often this object comes out, against the others"))
+        row.addWidget(self.less)
+        row.addWidget(self.badge, 1)
+        row.addWidget(self.more)
+        v.addLayout(row)
+        self.less.clicked.connect(lambda: self.set_weight(self.weight - 1))
+        self.more.clicked.connect(lambda: self.set_weight(self.weight + 1))
+        self.weight = 1
+        self.checked = False
+        self._paint()
+
+    def mousePressEvent(self, ev) -> None:
+        if ev.button() == Qt.LeftButton:
+            self.set_checked(not self.checked)
+            self.changed.emit()
+        super().mousePressEvent(ev)
+
+    def set_checked(self, on: bool) -> None:
+        self.checked = bool(on)
+        self._paint()
+
+    def set_weight(self, w: int) -> None:
+        self.weight = max(1, min(100, int(w)))
+        self._paint()
+
+    def _paint(self) -> None:
+        self.setProperty("on", "true" if self.checked else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.badge.setText(f"×{self.weight}" if self.checked else "")
+        for b in (self.less, self.more):
+            b.setVisible(self.checked)
 
 
 class ScatterPanel(QWidget):
@@ -36,58 +184,59 @@ class ScatterPanel(QWidget):
         self._busy = False               # scattering: the button waits
         self._sel_key = None
         self._tris = []
-        lay = QVBoxLayout(self)
+        self.tiles = []
+        self.setStyleSheet(_STYLE)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll)
+        body = QWidget()
+        scroll.setWidget(body)
+        lay = QVBoxLayout(body)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(8)
 
-        intro = QLabel(tr("Spread copies of components over faces, a group or "
-                          "the terrain, with their size and turn at random."))
-        intro.setWordWrap(True)
-        lay.addWidget(intro)
+        # The two ways
+        bar = QFrame()
+        bar.setObjectName("segbar")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(3, 3, 3, 3)
+        bl.setSpacing(3)
+        self.way = QButtonGroup(self)
+        self.way_scatter, self.way_brush = QToolButton(), QToolButton()
+        for b, key, text, tip in (
+                (self.way_scatter, "scatter", tr("Scatter"),
+                 tr("Spread copies over the selected faces, a group or the terrain")),
+                (self.way_brush, "brush", tr("Brush"),
+                 tr("Paint copies by hand where you drag"))):
+            b.setObjectName("seg")
+            b.setCheckable(True)
+            b.setIcon(icon(key))
+            b.setIconSize(QSize(18, 18))
+            b.setText(text)
+            b.setToolTip(tip)
+            b.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            b.setSizePolicy(b.sizePolicy().horizontalPolicy().Expanding,
+                            b.sizePolicy().verticalPolicy())
+            self.way.addButton(b)
+            bl.addWidget(b, 1)
+        self.way_scatter.setChecked(True)
+        self.way.buttonToggled.connect(lambda _b, _on: self._way_changed())
+        lay.addWidget(bar)
 
-        # Objects
-        box = QGroupBox(tr("Objects"))
-        bl = QVBoxLayout(box)
-        self.objects = QTableWidget(0, 2)
-        self.objects.setHorizontalHeaderLabels([tr("Object"), tr("Share")])
-        self.objects.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.objects.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.objects.verticalHeader().setVisible(False)
-        self.objects.setSelectionMode(QTableWidget.NoSelection)
-        self.objects.setMinimumHeight(260)
-        bl.addWidget(self.objects)
-        lay.addWidget(box)
+        # 1 · Objects
+        card, cl = _card(1, tr("Objects"), "objects")
+        self.grid = QGridLayout()
+        self.grid.setSpacing(6)
+        cl.addLayout(self.grid)
+        lay.addWidget(card)
 
-        # Surface
-        box = QGroupBox(tr("Surface"))
-        form = QFormLayout(box)
-        self.where = QLabel()
-        self.where.setWordWrap(True)
-        form.addRow(self.where)
-        self.terrain = QCheckBox(tr("On the terrain"))
+        # Shared controls, moved between boxes with the way
+        self.terrain = QCheckBox()
         self.terrain.setToolTip(tr("Drop every copy onto the 3D terrain of the "
                                    "Terrain tab, inside the selected area"))
-        form.addRow(self.terrain)
-        self.max_slope = QDoubleSpinBox()
-        self.max_slope.setRange(0.0, 90.0)
-        self.max_slope.setDecimals(0)
-        self.max_slope.setSuffix(" °")
-        self.max_slope.setToolTip(tr("From a group, only the faces this close to "
-                                     "level (its floors and roofs, not its walls)"))
-        self.max_slope.valueChanged.connect(lambda _v: self._refresh_selection(True))
-        form.addRow(tr("Steepest slope"), self.max_slope)
-        lay.addWidget(box)
-
-        # Copies
-        box = QGroupBox(tr("Copies"))
-        form = QFormLayout(box)
-        row = QHBoxLayout()
-        self.mode = QComboBox()
-        self.mode.addItem(tr("Number of copies"), "count")
-        self.mode.addItem(tr("Copies per 100 m²"), "density")
-        self.amount = QDoubleSpinBox()
-        self.mode.currentIndexChanged.connect(self._mode_changed)
-        row.addWidget(self.mode, 1)
-        row.addWidget(self.amount)
-        form.addRow(row)
         self.distance = QDoubleSpinBox()
         self.distance.setRange(0.0, 100.0)
         self.distance.setDecimals(2)
@@ -95,99 +244,176 @@ class ScatterPanel(QWidget):
         self.distance.setSuffix(" m")
         self.distance.setToolTip(tr("The least distance from one copy to the next "
                                     "(0 = no limit)"))
-        form.addRow(tr("Distance between copies"), self.distance)
-        lay.addWidget(box)
+        self.terrain_row = _row("terrain", tr("On the terrain"), self.terrain)
+        self.distance_row = _row("spacing", tr("Spacing"), self.distance)
 
-        # Variation
-        box = QGroupBox(tr("Variation"))
-        form = QFormLayout(box)
-        row = QHBoxLayout()
-        self.smin, self.smax = QSpinBox(), QSpinBox()
-        for s in (self.smin, self.smax):
-            s.setRange(1, 1000)
-            s.setSingleStep(5)
-            s.setSuffix(" %")
-        row.addWidget(self.smin)
-        row.addWidget(QLabel(tr("to")))
-        row.addWidget(self.smax)
-        form.addRow(tr("Size from"), row)
-        self.rotation = QDoubleSpinBox()
-        self.rotation.setRange(0.0, 360.0)
-        self.rotation.setDecimals(0)
-        self.rotation.setSuffix(" °")
-        self.rotation.setToolTip(tr("Each copy turns at random, from 0 up to "
-                                    "this angle"))
-        form.addRow(tr("Turn up to"), self.rotation)
-        self.align = QCheckBox(tr("Lean with the surface"))
-        self.align.setToolTip(tr("Copies follow the slope (stones, grass) "
-                                 "instead of standing upright (trees, people)"))
-        form.addRow(self.align)
-        row = QHBoxLayout()
-        self.seed = QSpinBox()
-        self.seed.setRange(0, 999999)
-        self.seed.setToolTip(tr("The same seed gives the same scatter"))
-        new_seed = QPushButton(tr("New"))
-        new_seed.setToolTip(tr("Another random arrangement"))
-        new_seed.clicked.connect(self._new_seed)
-        row.addWidget(self.seed, 1)
-        row.addWidget(new_seed)
-        form.addRow(tr("Seed"), row)
-        lay.addWidget(box)
+        # 2 · Where  +  3 · How many   (scatter)
+        self.scatter_box = QWidget()
+        duo = QHBoxLayout(self.scatter_box)
+        duo.setContentsMargins(0, 0, 0, 0)
+        duo.setSpacing(8)
+        card, cl = _card(2, tr("Where"))
+        self.where_big = QLabel("—")
+        self.where_big.setObjectName("big")
+        cl.addWidget(self.where_big)
+        self.where = QLabel()
+        self.where.setObjectName("hint")
+        self.where.setWordWrap(True)
+        cl.addWidget(self.where)
+        self.where_layout = cl
+        self.max_slope = QDoubleSpinBox()
+        self.max_slope.setRange(0.0, 90.0)
+        self.max_slope.setDecimals(0)
+        self.max_slope.setSuffix(" °")
+        self.max_slope.setToolTip(tr("From a group, only the faces this close to "
+                                     "level (its floors and roofs, not its walls)"))
+        self.max_slope.valueChanged.connect(lambda _v: self._refresh_selection(True))
+        cl.addWidget(_row("slope", tr("Steepest"), self.max_slope))
+        cl.addStretch(1)
+        duo.addWidget(card, 1)
+        card, cl = _card(3, tr("How many"))
+        self.amount = QDoubleSpinBox()
+        self.amount.setObjectName("bigspin")
+        self.mode = QComboBox()
+        self.mode.addItem(tr("copies"), "count")
+        self.mode.addItem(tr("per 100 m²"), "density")
+        self.mode.currentIndexChanged.connect(self._mode_changed)
+        cl.addWidget(self.amount)
+        cl.addWidget(self.mode)
+        self.count_layout = cl
+        cl.addStretch(1)
+        duo.addWidget(card, 1)
+        lay.addWidget(self.scatter_box)
 
-        # Brush
-        box = QGroupBox(tr("Brush"))
-        form = QFormLayout(box)
-        self.paint_btn = QPushButton(tr("Paint"))
-        self.paint_btn.setCheckable(True)
-        self.paint_btn.setToolTip(tr("Drag over faces (or the terrain, with “On "
-                                     "the terrain”) to add copies; Shift+drag "
-                                     "takes them away. [ and ] change the size."))
-        self.paint_btn.toggled.connect(self._paint_toggled)
-        form.addRow(self.paint_btn)
+        # 2 · Brush   (brush)
+        self.brush_box, cl = _card(2, tr("Brush"), "brush")
+        g = QGridLayout()
+        g.setSpacing(4)
         self.brush = QDoubleSpinBox()
         self.brush.setRange(0.1, 100.0)
         self.brush.setDecimals(2)
         self.brush.setSingleStep(0.5)
         self.brush.setSuffix(" m")
         self.brush.setToolTip(tr("The brush's radius"))
-        form.addRow(tr("Brush size"), self.brush)
         self.brush_density = QDoubleSpinBox()
         self.brush_density.setRange(0.01, 1000.0)
         self.brush_density.setDecimals(2)
         self.brush_density.setSingleStep(0.5)
         self.brush_density.setToolTip(tr("How thick the brush paints, with the "
-                                         "objects and the variation above"))
-        form.addRow(tr("Copies per 100 m²"), self.brush_density)
-        self.brush_note = QLabel()
-        self.brush_note.setWordWrap(True)
-        form.addRow(self.brush_note)
-        lay.addWidget(box)
+                                         "objects and the variation"))
+        for col, (text, w) in enumerate(((tr("Size"), self.brush),
+                                         (tr("Copies per 100 m²"), self.brush_density))):
+            lab = QLabel(text)
+            lab.setObjectName("hint")
+            g.addWidget(lab, 0, col)
+            g.addWidget(w, 1, col)
+        cl.addLayout(g)
+        self.brush_layout = cl
+        keys = QLabel(tr("Drag: paint · <b>Shift</b>: take away · <b>[ ]</b>: size "
+                         "· <b>Esc</b>: stop"))
+        keys.setObjectName("hint")
+        keys.setWordWrap(True)
+        cl.addWidget(keys)
+        lay.addWidget(self.brush_box)
 
-        # Zones kept clear
-        box = QGroupBox(tr("Keep clear"))
-        form = QFormLayout(box)
-        note = QLabel(tr("Nothing goes inside what you select here, seen from "
-                         "above: a path, a house, a pond."))
-        note.setWordWrap(True)
-        form.addRow(note)
-        self.clear_btn = QPushButton(tr("Keep the selection clear"))
-        self.clear_btn.clicked.connect(self.keep_clear)
-        form.addRow(self.clear_btn)
-        self.free_btn = QPushButton(tr("Free all zones"))
-        self.free_btn.clicked.connect(self.free_zones)
-        form.addRow(self.free_btn)
+        # Variation
+        self.var_card, cl = _card(4, tr("Variation"), "variation")
+        self.smin, self.smax = QSpinBox(), QSpinBox()
+        for s in (self.smin, self.smax):
+            s.setRange(1, 1000)
+            s.setSingleStep(5)
+            s.setSuffix(" %")
+        sz = QWidget()
+        h = QHBoxLayout(sz)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+        h.addWidget(self.smin)
+        h.addWidget(QLabel(tr("to")))
+        h.addWidget(self.smax)
+        cl.addWidget(_row("size", tr("Size"), sz))
+        self.rotation = QDoubleSpinBox()
+        self.rotation.setRange(0.0, 360.0)
+        self.rotation.setDecimals(0)
+        self.rotation.setSuffix(" °")
+        self.rotation.setToolTip(tr("Each copy turns at random, from 0 up to "
+                                    "this angle"))
+        cl.addWidget(_row("turn", tr("Turn up to"), self.rotation))
+        self.align = QCheckBox()
+        self.align.setToolTip(tr("Copies follow the slope (stones, grass) "
+                                 "instead of standing upright (trees, people)"))
+        cl.addWidget(_row("slope", tr("Lean with the surface"), self.align))
+        seed = QWidget()
+        h = QHBoxLayout(seed)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+        self.seed = QSpinBox()
+        self.seed.setRange(0, 999999)
+        self.seed.setToolTip(tr("The same seed gives the same scatter"))
+        new_seed = QToolButton()
+        new_seed.setIcon(icon("seed"))
+        new_seed.setToolTip(tr("Another random arrangement"))
+        new_seed.clicked.connect(self._new_seed)
+        h.addWidget(self.seed)
+        h.addWidget(new_seed)
+        cl.addWidget(_row("seed", tr("Seed"), seed))
+        self.var_layout = cl
+        lay.addWidget(self.var_card)
+
+        # Keep clear
+        card, cl = _card(None, tr("Keep clear"), "clear")
         self.zones = QLabel()
-        self.zones.setWordWrap(True)
-        form.addRow(self.zones)
-        lay.addWidget(box)
+        self.zones.setObjectName("hint")
+        card.head.addWidget(self.zones)
+        note = QLabel(tr("Nothing goes inside what you select, seen from above: "
+                         "a path, a house, a pond."))
+        note.setObjectName("hint")
+        note.setWordWrap(True)
+        cl.addWidget(note)
+        two = QHBoxLayout()
+        two.setSpacing(6)
+        self.clear_btn, self.free_btn = QToolButton(), QToolButton()
+        for b, key, text in ((self.clear_btn, "plus", tr("Keep this clear")),
+                             (self.free_btn, "erase", tr("Free all"))):
+            b.setObjectName("action")
+            b.setIcon(icon(key))
+            b.setIconSize(QSize(18, 18))
+            b.setText(text)
+            b.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            b.setSizePolicy(b.sizePolicy().horizontalPolicy().Expanding,
+                            b.sizePolicy().verticalPolicy())
+            two.addWidget(b, 1)
+        self.clear_btn.setToolTip(tr("Keep the selection clear"))
+        self.free_btn.setToolTip(tr("Free all zones"))
+        self.clear_btn.clicked.connect(self.keep_clear)
+        self.free_btn.clicked.connect(self.free_zones)
+        cl.addLayout(two)
+        lay.addWidget(card)
 
+        # Editing, the button, what happened
         self.editing = QLabel()
         self.editing.setWordWrap(True)
+        self.editing.setObjectName("hint")
         lay.addWidget(self.editing)
         self.go = QPushButton()
+        self.go.setObjectName("primary")
+        self.go.setIcon(icon("scatter"))
         self.go.setDefault(True)
         self.go.clicked.connect(self.run)
         lay.addWidget(self.go)
+        self.paint_btn = QPushButton(tr("Paint"))
+        self.paint_btn.setObjectName("primary")
+        self.paint_btn.setIcon(icon("brush"))
+        self.paint_btn.setCheckable(True)
+        self.paint_btn.setToolTip(tr("Drag over faces (or the terrain, with “On "
+                                     "the terrain”) to add copies; Shift+drag "
+                                     "takes them away. [ and ] change the size."))
+        self.paint_btn.toggled.connect(self._paint_toggled)
+        lay.addWidget(self.paint_btn)
+        self.brush_note = QLabel()
+        self.brush_note.setObjectName("hint")
+        self.brush_note.setAlignment(Qt.AlignCenter)
+        self.brush_note.setWordWrap(True)
+        lay.addWidget(self.brush_note)
         self.status = QLabel()
         self.status.setWordWrap(True)
         lay.addWidget(self.status)
@@ -195,6 +421,7 @@ class ScatterPanel(QWidget):
 
         self.set_params(motor.DEFAULTS)
         self.fill_objects()
+        self._way_changed()
         # IngeTrazo says nothing to extensions when the selection changes:
         # look at it while the tab is on screen (a few objects, cheap).
         self._timer = QTimer(self)
@@ -204,6 +431,34 @@ class ScatterPanel(QWidget):
         app.on_document_changed(self._document_changed)
         self._refresh_selection(True)
 
+    # ---- the two ways -----------------------------------------------------------
+
+    def way_name(self) -> str:
+        return "brush" if self.way_brush.isChecked() else "scatter"
+
+    def set_way(self, name: str) -> None:
+        (self.way_brush if name == "brush" else self.way_scatter).setChecked(True)
+
+    def _way_changed(self) -> None:
+        brush = self.way_name() == "brush"
+        self.scatter_box.setVisible(not brush)
+        self.brush_box.setVisible(brush)
+        self.go.setVisible(not brush)
+        self.paint_btn.setVisible(brush)
+        self.brush_note.setVisible(brush)
+        # Shared rows go where they mean something in this way.
+        if brush:
+            self.brush_layout.insertWidget(2, self.terrain_row)
+            self.var_layout.insertWidget(3, self.distance_row)
+            self.var_card.findChild(QLabel, "step").setText("3")
+        else:
+            self.where_layout.insertWidget(3, self.terrain_row)
+            self.count_layout.insertWidget(3, self.distance_row)
+            self.var_card.findChild(QLabel, "step").setText("4")
+            if self.paint_btn.isChecked():
+                self.paint_btn.setChecked(False)
+        self._show_mode()
+
     # ---- objects --------------------------------------------------------------
 
     def fill_objects(self, chosen=None) -> None:
@@ -211,7 +466,7 @@ class ScatterPanel(QWidget):
         (a list of sources) ticks those and sets their share."""
         explicit = chosen is not None
         if chosen is None:
-            chosen = self.sources() if self.objects.rowCount() else []
+            chosen = self.sources() if self.tiles else []
         rows = []
         for g in motor.model_components(self.app.scene):
             rows.append(({"kind": "model", "name": g.name}, None, tr("In the model")))
@@ -228,44 +483,43 @@ class ScatterPanel(QWidget):
         sig = [(r[0].get("kind"), r[0].get("key"), r[0].get("name")) for r in rows]
         if sig == getattr(self, "_rows_sig", None) and not explicit:
             return                       # the same list: keep ticks as they are
+        if sig == getattr(self, "_rows_sig", None):
+            for t in self.tiles:         # same tiles: only the choice changes
+                pick = next((c for c in chosen if motor._same_source(c, t.src)), None)
+                t.set_checked(pick is not None)
+                t.set_weight(int(pick.get("weight", 1)) if pick else 1)
+            return
         self._rows_sig = sig
-        self.objects.clearContents()
-        self.objects.setRowCount(0)
-        self.objects.setRowCount(len(rows))
+        for t in self.tiles:
+            self.grid.removeWidget(t)
+            t.deleteLater()
+        self.tiles = []
         for i, (src, thumb, tip) in enumerate(rows):
-            item = QTableWidgetItem(src["name"])
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+            t = ObjectTile(src, thumb, tip)
             pick = next((c for c in chosen if motor._same_source(c, src)), None)
-            item.setCheckState(Qt.Checked if pick else Qt.Unchecked)
-            item.setData(Qt.UserRole, src)
-            item.setToolTip(tip)
-            if thumb:
-                item.setIcon(QIcon(thumb))
-            self.objects.setItem(i, 0, item)
-            w = QSpinBox()
-            w.setRange(1, 100)
-            w.setValue(int(pick.get("weight", 1)) if pick else 1)
-            w.setToolTip(tr("How often this object comes out, against the others"))
-            self.objects.setCellWidget(i, 1, w)
+            t.set_checked(pick is not None)
+            t.set_weight(int(pick.get("weight", 1)) if pick else 1)
+            t.changed.connect(self._show_mode)
+            self.grid.addWidget(t, i // 3, i % 3)
+            self.tiles.append(t)
 
     def sources(self) -> list:
         out = []
-        for i in range(self.objects.rowCount()):
-            item = self.objects.item(i, 0)
-            if item is not None and item.checkState() == Qt.Checked:
-                s = dict(item.data(Qt.UserRole))
-                s["weight"] = self.objects.cellWidget(i, 1).value()
+        for t in self.tiles:
+            if t.checked:
+                s = dict(t.src)
+                s["weight"] = t.weight
                 out.append(s)
         return out
 
     def check(self, kind: str, key_or_name: str, weight: int = 1) -> None:
         """Tick one object (tests and the console)."""
-        for i in range(self.objects.rowCount()):
-            src = self.objects.item(i, 0).data(Qt.UserRole)
+        for t in self.tiles:
+            src = t.src
             if src["kind"] == kind and (src.get("key") == key_or_name
                                         or src.get("name") == key_or_name):
-                self.objects.item(i, 0).setCheckState(Qt.Checked)
-                self.objects.cellWidget(i, 1).setValue(weight)
+                t.set_checked(True)
+                t.set_weight(weight)
                 return
         raise KeyError(key_or_name)
 
@@ -362,6 +616,7 @@ class ScatterPanel(QWidget):
         self._tris = motor.surface_from_selection(sel, self.max_slope.value())
         if self._tris:
             self._editing = None
+            self.where_big.setText(f"{motor.surface_area(self._tris):.0f} m²")
             self.where.setText(tr("Selection: {a} m² ({n} triangles)",
                                   n=len(self._tris),
                                   a=f"{motor.surface_area(self._tris):.1f}"))
@@ -369,6 +624,7 @@ class ScatterPanel(QWidget):
             self.edit(self._editing)     # painted: still editing it
             return
         else:
+            self.where_big.setText("—")
             self.where.setText(tr("Select faces or a group in the model."))
         self._show_mode()
 
@@ -378,9 +634,13 @@ class ScatterPanel(QWidget):
         if self._editing is not group:
             self.set_params(e)
             self.fill_objects(e.get("sources", []))
+            if not e["surface"] and self.way_name() != "brush":
+                self.set_way("brush")    # painted by hand: open the brush
         self._editing = group
         self._last = group
         self._tris = []
+        self.where_big.setText(f"{motor.surface_area(e['surface']):.0f} m²"
+                               if e["surface"] else "—")
         if e["surface"]:
             text = tr("The scatter's surface: {a} m² ({n} triangles)",
                       n=len(e["surface"]),
@@ -394,11 +654,15 @@ class ScatterPanel(QWidget):
         self._show_mode()
 
     def _show_mode(self) -> None:
+        if not hasattr(self, "go"):
+            return                       # still being built
+        brush = self.way_name() == "brush"
         if self._editing is not None:
-            self.editing.setText("<b>" + tr("Editing: {name}", name=self._editing.name)
-                                 + "</b><br>" + tr(
-                "Change the numbers and scatter again on the same surface; or "
-                "select faces to start a new one."))
+            text = "<b>" + tr("Editing: {name}", name=self._editing.name) + "</b>"
+            if not brush:
+                text += "<br>" + tr("Change the numbers and scatter again on the "
+                                    "same surface; or select faces to start a new one.")
+            self.editing.setText(text)
             self.go.setText(tr("Scatter again"))
             self.go.setEnabled(not self._busy)
             self.brush_note.setText(tr("The brush adds to “{name}”.",
@@ -410,16 +674,19 @@ class ScatterPanel(QWidget):
             self.brush_note.setText(tr("The brush starts a new scatter."))
         target = self._zone_target()
         if target is None:
-            self.zones.setText(tr("Make or select a scatter first."))
+            self.zones.setText("")
+            tip = tr("Make or select a scatter first.")
             self.clear_btn.setEnabled(False)
             self.free_btn.setEnabled(False)
         else:
             n = len(target.ext[motor.KEY].get("clear") or [])
-            self.zones.setText(tr("In “{name}”: {n} zones kept clear.",
-                                  name=target.name, n=n))
+            self.zones.setText(tr("{n} zones", n=n))
+            tip = tr("In “{name}”: {n} zones kept clear.", name=target.name, n=n)
             sel = [g for g in self.app.scene.selection if not motor.is_scatter(g)]
             self.clear_btn.setEnabled(bool(sel) and not self._busy)
             self.free_btn.setEnabled(n > 0 and not self._busy)
+        self.zones.setToolTip(tip)
+        self.clear_btn.setToolTip(tr("Keep the selection clear") + "\n" + tip)
 
     # ---- the button -----------------------------------------------------------
 

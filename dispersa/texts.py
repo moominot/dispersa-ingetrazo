@@ -48,8 +48,8 @@ _TEXTS = {
             "La misma semilla da la misma dispersión",
         "New": "Nueva",
         "Another random arrangement": "Otra disposición al azar",
-        "Scatter on the selection": "Dispersar sobre la selección",
-        "Scatter again": "Volver a dispersar",
+        "Scatter on the selection": "Repartir sobre la selección",
+        "Scatter again": "Volver a repartir",
         "Editing: {name}": "Editando: {name}",
         "Change the numbers and scatter again on the same surface; or select faces to start a new one.":
             "Cambia los valores y vuelve a dispersar sobre la misma superficie; o selecciona caras para empezar otra.",
@@ -70,6 +70,38 @@ _TEXTS = {
         "Could not read {name}.": "No se pudo leer {name}.",
                 "Edit in Dispersa…": "Editar en Dispersa…",
         "Seed {s}": "Semilla {s}",
+        "Scatter":
+            "Repartir",
+        "Spread copies over the selected faces, a group or the terrain":
+            "Reparte copias sobre las caras seleccionadas, un grupo o el terreno",
+        "Paint copies by hand where you drag":
+            "Pinta copias a mano donde arrastras",
+        "Spacing":
+            "Separación",
+        "Where":
+            "Dónde",
+        "Steepest":
+            "Pendiente máx.",
+        "How many":
+            "Cuántas",
+        "copies":
+            "copias",
+        "per 100 m²":
+            "por 100 m²",
+        "Size":
+            "Tamaño",
+        "How thick the brush paints, with the objects and the variation":
+            "Cuán denso pinta el pincel, con los objetos y la variación",
+        "Drag: paint · <b>Shift</b>: take away · <b>[ ]</b>: size · <b>Esc</b>: stop":
+            "Arrastra: pinta · <b>Mayús</b>: quita · <b>[ ]</b>: tamaño · <b>Esc</b>: termina",
+        "Nothing goes inside what you select, seen from above: a path, a house, a pond.":
+            "Nada cae dentro de lo que selecciones, visto desde arriba: un camino, una casa, un estanque.",
+        "Keep this clear":
+            "Dejar libre",
+        "Free all":
+            "Quitar todas",
+        "{n} zones":
+            "{n} zonas",
         "Nothing to paint on there: the faces under the brush are too steep.":
             "No hay dónde pintar ahí: las caras bajo el pincel son demasiado empinadas.",
         "Brush":
@@ -178,6 +210,38 @@ _TEXTS = {
         "Could not read {name}.": "Não foi possível ler {name}.",
                 "Edit in Dispersa…": "Editar em Dispersa…",
         "Seed {s}": "Semente {s}",
+        "Scatter":
+            "Espalhar",
+        "Spread copies over the selected faces, a group or the terrain":
+            "Espalha cópias sobre as faces selecionadas, um grupo ou o terreno",
+        "Paint copies by hand where you drag":
+            "Pinta cópias à mão onde você arrasta",
+        "Spacing":
+            "Espaçamento",
+        "Where":
+            "Onde",
+        "Steepest":
+            "Inclinação máx.",
+        "How many":
+            "Quantas",
+        "copies":
+            "cópias",
+        "per 100 m²":
+            "por 100 m²",
+        "Size":
+            "Tamanho",
+        "How thick the brush paints, with the objects and the variation":
+            "Quão denso o pincel pinta, com os objetos e a variação",
+        "Drag: paint · <b>Shift</b>: take away · <b>[ ]</b>: size · <b>Esc</b>: stop":
+            "Arraste: pinta · <b>Shift</b>: remove · <b>[ ]</b>: tamanho · <b>Esc</b>: termina",
+        "Nothing goes inside what you select, seen from above: a path, a house, a pond.":
+            "Nada cai dentro do que você selecionar, visto de cima: um caminho, uma casa, um lago.",
+        "Keep this clear":
+            "Deixar livre",
+        "Free all":
+            "Remover todas",
+        "{n} zones":
+            "{n} zonas",
         "Nothing to paint on there: the faces under the brush are too steep.":
             "Não há onde pintar ali: as faces sob o pincel são íngremes demais.",
         "Brush":

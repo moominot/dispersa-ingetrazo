@@ -59,8 +59,7 @@ def _face(scene, size=25.0):
 def test_the_tab_lists_ingetrazo_objects_and_waits_for_a_selection(window):
     win, _ = window
     p = _panel(win)
-    names = [p.objects.item(i, 0).data(0x0100)["kind"]
-             for i in range(p.objects.rowCount())]
+    names = [t.src["kind"] for t in p.tiles]
     assert names.count("bundled") >= 5
     p._refresh_selection(True)
     assert not p.go.isEnabled()
